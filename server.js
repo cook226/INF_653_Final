@@ -1,48 +1,68 @@
+// Load environment variables from `.env`.
 require('dotenv').config();
+
+// Required dependencies
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-const connectDB = require('./config/dbConnect');
-const statesRoutes = require('./routes/statesRoutes');
+const mongoose = require('mongoose');
 
-// Connect to Database
-connectDB();
+// Import custom modules
+const corsOptions = require('./config/corsOptions');
+const { logger } = require('./middleware/logEvents');
+const errorHandler = require('./middleware/errorHandler');
+const connectDB = require('./config/dbConn');
 
-const allowedOrigins = [
-  'https://your-app-name.onrender.com',
-  // Add any other front-end origins you have
-];
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-};
-
+// Initialize the Express application
 const app = express();
 
+// Set the application port. If hosted, use the `PORT` environment variable.
+const PORT = process.env.PORT || 3500;
+
+// Connect to the MongoDB database
+connectDB();
+
+// Middleware to log requests
+app.use(logger);
+
+// Apply CORS (Cross-Origin Resource Sharing) with specific options.
 app.use(cors(corsOptions));
+
+// Middleware to handle URL-encoded data (form data) with extended encoding.
+app.use(express.urlencoded({ extended: false }));
+
+// Middleware for handling JSON data
 app.use(express.json());
 
-// Serve static files
-app.use(express.static('public'));
+// Middleware to serve static files from the `public` folder.
+app.use('/', express.static(path.join(__dirname, '/public')));
 
-// Routes
-app.use('/states', statesRoutes);
+// Routes for the root and specific endpoints.
+app.use('/', require('./routes/root'));
+app.use('/states', require('./routes/api/states'));
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Handle requests that don't match any specific route.
+// - `app.all('*')`: This will respond to any HTTP method and acts as a fallback.
+app.all('*', (req, res) => {
+    // Set the status to 404 (Not Found).
+    res.status(404);
+    // Serve the `404.html` file if the request accepts HTML.
+    if (req.accepts('html')) {
+        res.sendFile(path.join(__dirname, 'views', '404.html'));
+    // If JSON is requested, send a JSON error response.
+    } else if (req.accepts('json')) {
+        res.json({ error: "404 Not Found" });
+    // Otherwise, return plain text.
+    } else {
+        res.type('txt').send("404 Not Found");
+    }
 });
 
-// 404 Error handler middleware
-app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
-});
+// Error handling middleware for catching errors.
+app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start the server after successfully connecting to MongoDB.
+mongoose.connection.once('open', () => {
+    console.log('Connected to MongoDB');
+    app.listen(PORT, () => console.log(`Server running on port: ${PORT}`));
+});

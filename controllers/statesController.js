@@ -1,126 +1,140 @@
-// controllers/statesController.js
-const State = require('../models/State');
-const statesData = require('../models/statesData.json');
+// Import models
+const State = require('../model/State');
+const Statesfunfact = require('../model/Statesfunfact');
 
-// Helper function to find state details by its code
-const getStateData = (stateCode) => statesData.find((state) => state.code === stateCode);
+// Retrieve all states, optionally filtering by contiguous or non-contiguous states
+const getAllStates = async (req, res) => {
+    // Fetch all states and associated fun facts
+    let states = await State.find().lean();
+    const funStates = await Statesfunfact.find();
 
-// Get all states (with optional contiguous filter)
-const getAllStates = (req, res) => {
-  let results = statesData;
+    if (!states) return res.status(404).json({ "message": "No states found." });
 
-  // Handle ?contig=true or ?contig=false query parameters
-  const { contig } = req.query;
-  if (contig === 'true') {
-    results = statesData.filter((state) => !['AK', 'HI'].includes(state.code));
-  } else if (contig === 'false') {
-    results = statesData.filter((state) => ['AK', 'HI'].includes(state.code));
-  }
+    // Attach fun facts to each state
+    for (let state in states) {
+        for (let funState in funStates) {
+            if (states[state].code === funStates[funState].code) {
+                states[state]["funfacts"] = funStates[funState].funfacts;
+            }
+        }
+    }
 
-  res.json(results);
+    // Set of non-contiguous states (Alaska and Hawaii)
+    const nonContigStates = ["AK", "HI"];
+    let newStates = [];
+
+    // Filter based on the 'contig' query parameter
+    if (req.query.contig === "true") {
+        // Return contiguous states (excluding Alaska and Hawaii)
+        for (let state in states) {
+            if (!nonContigStates.includes(states[state].code)) {
+                newStates.push(states[state]);
+            }
+        }
+        return res.json(newStates);
+    } else if (req.query.contig === "false") {
+        // Return non-contiguous states (only Alaska and Hawaii)
+        for (let state in states) {
+            if (nonContigStates.includes(states[state].code)) {
+                newStates.push(states[state]);
+            }
+        }
+        return res.json(newStates);
+    } else {
+        // Return all states if no 'contig' query parameter is specified
+        return res.json(states);
+    }
 };
 
-// Get state by code
+// Retrieve a single state by its code
 const getState = async (req, res) => {
-  const { stateCode } = req;
-  const state = getStateData(stateCode);
+    // Fetch the requested state and its fun facts
+    const funStates = await Statesfunfact.find();
+    let state = await State.findOne({ code: req.params.code.toUpperCase() }).lean().exec();
 
-  if (!state) {
-    return res.status(404).json({ message: 'State not found' });
-  }
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
 
-  // Retrieve additional fun facts from MongoDB
-  const mongoState = await State.findOne({ stateCode });
-  if (mongoState) state.funfacts = mongoState.funfacts;
+    delete state._id;
 
-  res.json(state);
+    // Attach fun facts to the state if available
+    for (let funState in funStates) {
+        if (state.code === funStates[funState].code) {
+            state["funfacts"] = funStates[funState].funfacts;
+        }
+    }
+
+    res.json(state);
 };
 
-// Get a random fun fact for a specific state
-const getRandomFunFact = async (req, res) => {
-  const { stateCode } = req;
-  const mongoState = await State.findOne({ stateCode });
+// Retrieve the capital of a specific state
+const getCapital = async (req, res) => {
+    // Fetch the requested state
+    const state = await State.findOne({ code: req.params.code.toUpperCase() }).exec();
 
-  if (!mongoState || !mongoState.funfacts || mongoState.funfacts.length === 0) {
-    return res.status(404).json({ message: `No fun facts found for ${stateCode}` });
-  }
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
 
-  const randomFact = mongoState.funfacts[Math.floor(Math.random() * mongoState.funfacts.length)];
-  res.json({ funfact: randomFact });
+    res.json({ "state": state.state, "capital": state.capital_city });
 };
 
-// Add new fun facts to a specific state
-const addFunFacts = async (req, res) => {
-  const { stateCode } = req;
-  const { funfacts } = req.body;
+// Retrieve the nickname of a specific state
+const getNickname = async (req, res) => {
+    // Fetch the requested state
+    const state = await State.findOne({ code: req.params.code.toUpperCase() }).exec();
 
-  if (!Array.isArray(funfacts)) {
-    return res.status(400).json({ message: 'funfacts field must be an array' });
-  }
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
 
-  let mongoState = await State.findOne({ stateCode });
-
-  if (!mongoState) {
-    // Create a new document if the state doesn't exist
-    mongoState = new State({ stateCode, funfacts });
-  } else {
-    // Add the new fun facts to the existing list
-    mongoState.funfacts = mongoState.funfacts.concat(funfacts);
-  }
-
-  const updatedState = await mongoState.save();
-  res.status(201).json(updatedState);
+    res.json({ "state": state.state, "nickname": state.nickname });
 };
 
-// Update a fun fact at a specific index for a state
-const updateFunFact = async (req, res) => {
-  const { stateCode } = req;
-  const { index, funfact } = req.body;
+// Retrieve the population of a specific state
+const getPopulation = async (req, res) => {
+    // Fetch the requested state
+    const state = await State.findOne({ code: req.params.code.toUpperCase() }).exec();
 
-  if (!Number.isInteger(index) || index < 1) {
-    return res.status(400).json({ message: 'Index must be an integer greater than or equal to 1' });
-  }
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
 
-  const mongoState = await State.findOne({ stateCode });
-
-  if (!mongoState || !mongoState.funfacts || mongoState.funfacts.length < index) {
-    return res.status(404).json({ message: `No fun fact found at index ${index} for ${stateCode}` });
-  }
-
-  // Update the specific fun fact
-  mongoState.funfacts[index - 1] = funfact;
-  const updatedState = await mongoState.save();
-
-  res.json(updatedState);
+    res.json({ "state": state.state, "population": state.population.toLocaleString("en-US") });
 };
 
-// Delete a fun fact at a specific index for a state
-const deleteFunFact = async (req, res) => {
-  const { stateCode } = req;
-  const { index } = req.body;
+// Retrieve the admission date of a specific state
+const getAdmission = async (req, res) => {
+    // Fetch the requested state
+    const state = await State.findOne({ code: req.params.code.toUpperCase() }).exec();
 
-  if (!Number.isInteger(index) || index < 1) {
-    return res.status(400).json({ message: 'Index must be an integer greater than or equal to 1' });
-  }
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
 
-  const mongoState = await State.findOne({ stateCode });
-
-  if (!mongoState || !mongoState.funfacts || mongoState.funfacts.length < index) {
-    return res.status(404).json({ message: `No fun fact found at index ${index} for ${stateCode}` });
-  }
-
-  // Remove the specific fun fact
-  mongoState.funfacts.splice(index - 1, 1);
-  const updatedState = await mongoState.save();
-
-  res.json(updatedState);
+    res.json({ "state": state.state, "admitted": state.admission_date });
 };
 
+// Retrieve a random fun fact about a specific state
+const getFunfact = async (req, res) => {
+    // Fetch the requested state
+    const state = await State.findOne({ code: req.params.code.toUpperCase() }).exec();
+
+    if (!state) {
+        return res.status(400).json({ "message": "Invalid state abbreviation parameter" });
+    }
+
+    res.json({ "state": state.state, "admitted": state.admission_date });
+};
+
+// Export all route handler functions
 module.exports = {
-  getAllStates,
-  getState,
-  getRandomFunFact,
-  addFunFacts,
-  updateFunFact,
-  deleteFunFact,
+    getAllStates,
+    getState,
+    getCapital,
+    getNickname,
+    getPopulation,
+    getAdmission,
+    getFunfact
 };
