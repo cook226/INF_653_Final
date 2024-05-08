@@ -4,8 +4,8 @@ const express = require('express');
 const router = express.Router();
 
 // Import the necessary controllers for handling requests.
-const statesController = require('../../controllers/statesController');
-const statesfunfactsController = require('../../controllers/statesfunfactsController');
+const statesController = require('../controllers/statesController');
+const statesfunfactsController = require('../controllers/statesfunfactsController');
 
 // Define the route for getting a list of all states.
 // Method: GET, Path: `/`

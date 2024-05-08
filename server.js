@@ -17,7 +17,7 @@ const connectDB = require('./config/dbConn');
 const app = express();
 
 // Set the application port. If hosted, use the `PORT` environment variable.
-const PORT = process.env.PORT || 3500;
+const PORT = process.env.PORT || 5001;
 
 // Connect to the MongoDB database
 connectDB();
@@ -39,7 +39,7 @@ app.use('/', express.static(path.join(__dirname, '/public')));
 
 // Routes for the root and specific endpoints.
 app.use('/', require('./routes/root'));
-app.use('/states', require('./routes/api/states'));
+app.use('/states', require('./routes/statesRoutes'));
 
 // Handle requests that don't match any specific route.
 // - `app.all('*')`: This will respond to any HTTP method and acts as a fallback.

@@ -1,6 +1,6 @@
 // Import models
 const State = require('../model/State');
-const Statesfunfact = require('../model/Statesfunfact');
+const Statesfunfact = require('../model/statesfunfact');
 
 // Retrieve all states, optionally filtering by contiguous or non-contiguous states
 const getAllStates = async (req, res) => {
