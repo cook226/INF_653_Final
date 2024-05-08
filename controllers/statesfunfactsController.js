@@ -1,5 +1,5 @@
 // Import models
-const Statesfunfact = require('../model/Statesfunfact');
+const Statesfunfact = require('../model/statesfunfact');
 const State = require('../model/State');
 
 // Create new fun facts for a state

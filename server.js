@@ -17,7 +17,7 @@ const connectDB = require('./config/dbConn');
 const app = express();
 
 // Set the application port. If hosted, use the `PORT` environment variable.
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 6000;
 
 // Connect to the MongoDB database
 connectDB();

@@ -13,4 +13,4 @@ const statesfunfactSchema = new Schema({
 
 // Export the StatesFunFact model to be used in other parts of the application.
 // The model name `Statesfunfact` will be converted to the collection name `statesfunfacts` in the MongoDB database.
-module.exports = mongoose.models.Statesfunfact || mongoose.model('Statesfunfact', statesfunfactSchema);
+module.exports = mongoose.models.statesfunfact || mongoose.model('statesfunfact', statesfunfactSchema);
